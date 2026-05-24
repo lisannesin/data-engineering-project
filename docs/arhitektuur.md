@@ -27,8 +27,7 @@ poes kui ka tootearenduses ja aitab prioritiseerida ja triažeerida tegevusi mik
 | Allikas | Tüüp | Ajas muutuv? | Roll |
 |---------|------|--------------|------|
 | WooCommerce REST API | API | Jah, [1x / päevas] | Toodete staatus e-poes |
-| Tabel: 1_Product_track | API | Jah, [2 X/ nädalas] | Tootearenduse staatus ja täiendav info e-
-poe staatusele osas, mille kohta Woo REST APIs sisend puudub |
+| Tabel: 1_Product_track | API | Jah, [2 X/ nädalas] | Tootearenduse staatus ja täiendav info e-poe staatusele osas, mille kohta Woo REST APIs sisend puudub |
 | Tabel: 2_Packaging_register | API | Jah, [2 X/ nädalas] | Pakendite staatuse ja töövoo jälgimiseks |
 | Tabel: 3_Compliance_register | API | Jah, [1 X / nädalas] | Vastavuskontrolli staatuse  jälgimine, tähtaegade jälgimine |
 

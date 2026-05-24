@@ -5,22 +5,34 @@
 ## Äriküsimus
 
 **Äriküsimus**
-Kuidas saab Stillform hoida selget ülevaadet ja kontrolli veebipoe toimimise, laoseisu liikumise, tarnijate, vastavusnõuete ja toodete valmisoleku üle enne, kui probleemid mõjutavad kliente või müüki?
+Millised tooted on e-poes valmis müügiks ja milline on tootearenduses ja hankes
+olevate toodete staatus ning millised on ajalises järjestuses järgnevad tegevused, et e-
+poe toimimine oleks sujuv ja vastavuses kõigi nõuetega.
 
 **Väärtus**
-Töölaud annab ühe usaldusväärse vaate operatsioonidele, kuludele, riskidele, vastavusnõuetele, tarnijate järeltegevustele ja tootearendusega seotud otsustele väikese ühe inimese ettevõtte jaoks.
+Väärtus seisneb selles, et töölaud annab ühtse ülevaate toodete staatuse kohta nii e-
+poes kui ka tootearenduses ja aitab prioritiseerida ja triažeerida tegevusi mikroettevõttel.
 
-## Mõõdikud
+1. Toodete päeva lõpu staatus e-poes - SKU alusel: Mustand; Avalik; Laoseis
 
-1. Laoseisu piisavus — arvutatakse olemasoleva laoseisu ja prognoositava müügi põhjal, et tuvastada tooted, mille varu võib lähiajal otsa lõppeda.
-2. Tarnijate täitmise usaldusväärsus — mõõdetakse tarnete õigeaegsuse, hilinemiste ja täitmata tellimuste osakaalu põhjal, et hinnata tarnijatega seotud riske.
+2. Tootearenduse/toodete elutsükilstaatus - SKU alusel: Idee; Prototüüp; Testimises; Pre-launch (mustand valmis); Avaldatud (avalik); Arhiveeritud
+
+3. Pakendite staatus - tootearenduse jälgimistabel sisaldab infot, kas toode vajab pakendit; kui "jah", siis järgnevates veerudes on info pakenditüübi kohta, pakendimaterjali hanke staatuse ja omaniku, disaini omaniku ja staatuse ning kas pakendi loomine toimub ettevõttes sees või välise partneri kaudu (binaarne: internal/external)
+
+4. Vastavuskontrolli staatus - valgusfoori põhimõttel tulemus - igal tootel on märgis, kas vajab vastavuskontrolli dokumentatsiooni, ja kui "jah", siis mis liiki ning vastavuskontrolli dokumentatsiooni oleku staatus:
+   - Punane: kriitilised dokumendid puudu (blokeerib müüki)
+   - Kollane: tegevused pooleli (blokeerib müüki)
+   - Roheline: kõik vajalikud protsessid läbitud, dokumendid olemas
 
 ## Andmeallikad
 
 | Allikas | Tüüp | Ajas muutuv? | Roll |
 |---------|------|--------------|------|
-| WooCommerce REST API | API | Jah, [iga X tundi / päeva] | [Milleks kasutatakse?] |
-| [Nimi] | [seed / dim-tabel] | Ei, staatiline | [Milleks kasutatakse?] |
+| WooCommerce REST API | API | Jah, [1x / päevas] | Toodete staatus e-poes |
+| Tabel: 1_Product_track | API | Jah, [2 X/ nädalas] | Tootearenduse staatus ja täiendav info e-
+poe staatusele osas, mille kohta Woo REST APIs sisend puudub |
+| Tabel: 2_Packaging_register | API | Jah, [2 X/ nädalas] | Pakendite staatuse ja töövoo jälgimiseks |
+| Tabel: 3_Compliance_register | API | Jah, [1 X / nädalas] | Vastavuskontrolli staatuse  jälgimine, tähtaegade jälgimine |
 
 ## Andmevoog
 
@@ -35,9 +47,6 @@ flowchart LR
     mart --> dashboard[Power BI Näidikulaud]
     mart --> quality[Andmekvaliteedi testid]
 ```
-
-> Täpsusta diagrammi vastavalt oma projektile — lisa rohkem andmeallikaid, mudeleid või teenuseid.
-
 
 ## Andmebaasi kihid
 
@@ -60,10 +69,14 @@ flowchart LR
 
 | Risk | Mõju | Maandus |
 |------|------|---------|
-| Exceli failide struktuur muutub | Andmevoog võib katki minna | Rakendada andmete valideerimine ja kontrollida kohustuslike veergude olemasolu enne töötlemist |
-| Maandus API ei vasta või andmed ei uuene | Andmevoog võib katkeda või andmed laetakse valesti | Kasutada fallback-mehhanisme |
-| [Risk 3] | [Mis juhtub?] | [Kuidas maandad?] |
+| API ühenduse katkemine | Andmeid ei laeta | Kui API ühendus katkeb seetõttu, et e-poe omanik on API võtme rikkunud või peatanud, tuleb see uuesti luua ja koodis asendada. Andmete taastamiseks kasutatakse fallback-mehhanisme ja varukoopiaid, mida SiteGround salvestab 2 korda ööpäevas. Muud API või teenusepoolsed katkestused aktsepteeritakse riskina, kuna need jäävad ettevõtte kontrolli alt välja. Ettevõttel on loodud BCP (Business Continuity Plan), mis kirjeldab tegevusi erinevate tõenäoliste sündmuste korral. Kui probleem tekib WooCommerce’i, WordPressi või hostingu infrastruktuuris, pöördutakse managed hostingu teenusepakkuja toe poole. |
+| Excelis loodud tabelites esineb vigu | Tähelepanuta jäänud tähtajad või tegevused võivad põhjustada maine- ja finantsriske | Kehtestatud on regulaarne andmete uuendamise rutiin (1–2 korda nädalas sõltuvalt andmeliigist). Enne iga uuenduse laadimist Synologysse tehakse eelmisest versioonist koopia. Lisaks toimub kord kuus töövoogude inventuur ja kord kvartalis täisinventuur. |
+| Andmeleke | GDPR ja teiste vastavusnõuete rikkumise risk | Töölauda ei konsolideerita isikuandmeid. Ligipääs on kaitstud 2FA ja SSO autentimisega. |
+| Administraatori vead | Vigane andmete laadimine või kuvamine | Kasutatakse varukoopiaid, mida luuakse 2 korda ööpäevas, ning olemas on rollback-taastamise võimalused. |
 
 ## Privaatsus ja turve
 
-Projektis kasutatakse peamiselt operatiivseid äriandmeid, nagu laoseis, tellimused, tarnijate info ja toodete valmisolek. API kaudu kliendi isikuandmeid ei töödelda ega salvestata. Ligipääs andmetele on piiratud ainult volitatud kasutajatele. Kõik andmebaasi ühendused, API võtmed ja muud tundlikud seadistused hoitakse .env failis ning neid ei salvestata lähtekoodi.
+Projektis kasutatakse peamiselt operatiivseid äriandmeid, nagu laoseis, tellimustes toodete info
+ja toodete staatus. API kaudu kliendi isikuandmeid ei töödelda ega salvestata. Ligipääs
+andmetele on piiratud ainult volitatud kasutajatele. Kõik andmebaasi ühendused, API võtmed ja
+muud tundlikud seadistused hoitakse .env failis ning neid ei salvestata lähtekoodi.

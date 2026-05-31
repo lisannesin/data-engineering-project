@@ -4,34 +4,37 @@
 
 ## Mis on valmis
 
-- [ ] Docker Compose käivitab kõik teenused
-- [ ] Andmeid saadakse allikast kätte
-- [ ] Andmed laetakse `staging` kihti
-- [ ] Vähemalt üks transformatsioon toimib
-- [ ] Vähemalt üks näidikulaud on nähtaval
+- [x] Docker Compose käivitab kõik teenused
+- [x] Andmeid saadakse allikast kätte
+- [x] Andmed laetakse `staging` kihti
+- [x] Vähemalt üks transformatsioon toimib
+- [x] Vähemalt üks näidikulaud on nähtaval
 - [ ] Vähemalt üks andmekvaliteedi test läbib
 
-[Täpsusta lühidalt, mis täpselt valmis on]
+Valmis on esmane andmevoog, mis tõmbab toodete andmed WooCommerce API-st PostgreSQL andmebaasi. Andmed salvestatakse RAW, STG ja MART kihtidesse. MART kihist loeb andmeid Streamlit dashboard, mis kuvab toodete koguarvu, laoseisu staatust ning toodete ülevaadet. Kogu lahendus töötab Docker Compose keskkonnas.
 
 ## Järgmised sammud
 
-- [Esimene tegevus, mis ees ootab]
-- [Teine tegevus]
-- [Kolmas tegevus]
+- Lisada andmekvaliteedi testid
+- Lisada Synology Excleid sisendiks
+- Graafikuid lisada juurde
 
 ## Mis takistab
 
-- [Probleem 1 — näiteks: API tagastab vigaseid väärtusi ühes linnas]
-- [Probleem 2 — või: "Praegu pole blokeerivaid probleeme"]
+-  Praegu pole blokeerivaid probleeme
 
 ## Kontrollpunkt
 
 Käsk, millega saab kontrollida, et töövoog töötab:
 
 ```bash
-# [Lisa siia käsk, mis näitab, et andmed liiguvad allikast näidikulauani]
 # Näiteks:
-docker compose exec pipeline python scripts/run_pipeline.py check
+docker compose up --build
 ```
 
-Oodatav tulemus: [Kirjelda, mida töötav süsteem väljastab]
+Oodatav tulemus:
+
+- PostgreSQL andmebaas käivitub edukalt
+- WooCommerce API-st laetakse toodete andmed
+RAW, STG ja MART kihid täidetakse andmetega
+- Streamlit dashboard avaneb aadressil http://localhost:8501

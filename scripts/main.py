@@ -68,9 +68,52 @@ def fetch_products():
 
     products = response.json()
 
-    logger.info(f"Fetched {len(products)} products")
+    all_products = []
 
-    return products
+    for product in products:
+
+        # Add normal product
+        all_products.append(product)
+
+        # Fetch variations if variable product
+        if product.get("type") == "variable":
+
+            variation_url = (
+                f"{WC_URL}/products/{product['id']}/variations"
+            )
+
+            variation_response = requests.get(
+                variation_url,
+                auth=HTTPBasicAuth(
+                    CONSUMER_KEY,
+                    CONSUMER_SECRET
+                ),
+                timeout=30
+            )
+
+            variation_response.raise_for_status()
+
+            variations = variation_response.json()
+
+            for variation in variations:
+
+                # Build variation name
+                attributes = [
+                    attr["option"]
+                    for attr in variation.get("attributes", [])
+                ]
+
+                variation["name"] = (
+                    f"{product['name']} - {' / '.join(attributes)}"
+                )
+
+                all_products.append(variation)
+
+    logger.info(
+        f"Fetched {len(all_products)} products and variations"
+    )
+
+    return all_products
 
 
 # ==================================================
@@ -124,7 +167,11 @@ def transform_stg(products):
 
             "sku": product.get("sku"),
 
-            "stock_quantity": product.get("stock_quantity")
+            "stock_quantity": product.get("stock_quantity"),
+
+             "product_status": product.get("status"),
+
+             "stock_status": product.get("stock_status")
 
         })
 
@@ -173,19 +220,65 @@ def transform_mart(stg_df):
 
     mart_df = stg_df.copy()
 
-    mart_df["in_stock"] = (
-        mart_df["stock_quantity"] > 0
-    )
+    mart_df["in_stock"] = mart_df["stock_status"].eq("instock")
 
-    mart_df["inventory_status"] = mart_df[
-        "stock_quantity"
-    ].apply(
-        lambda x: "Out of Stock"
-        if x == 0
-        else "In Stock"
-    )
+    mart_df["inventory_status"] = mart_df["stock_status"].map({
+        "instock": "In Stock",
+        "outofstock": "Out of Stock",
+        "onbackorder": "On Backorder"
+    }).fillna("Unknown")
 
     return mart_df
+
+
+
+def run_quality():
+
+    logger.info("Running quality checks")
+
+    with engine.begin() as conn:
+
+        sql_path = "scripts/quality.sql"
+        try:
+            with open(sql_path, "r", encoding="utf-8") as file:
+                sql = file.read()
+        except FileNotFoundError:
+            logger.error(f"Quality SQL file not found: {sql_path}")
+            return
+
+        # Split into statements and execute non-empty statements to avoid
+        # database errors like "can't execute an empty query" when the file
+        # contains trailing semicolons or blank lines.
+        statements = [s.strip() for s in sql.split(";")]
+
+        for stmt in statements:
+            if not stmt:
+                continue
+            conn.execute(text(stmt))
+
+        # Check that the results table was created before querying it.
+        exists = conn.execute(
+            text("SELECT to_regclass('quality.product_rule_results')")
+        ).scalar()
+
+        if not exists:
+            logger.warning(
+                "quality.product_rule_results does not exist after running quality SQL; skipping issues count."
+            )
+            issues = 0
+        else:
+            try:
+                issues = conn.execute(
+                    text("SELECT COUNT(*) FROM quality.product_rule_results")
+                ).scalar()
+            except Exception as e:
+                logger.error(f"Error counting quality issues: {e}")
+                issues = 0
+
+    logger.info(
+        f"Quality checks completed. "
+        f"Found {issues} issues."
+    )
 
 
 # ==================================================
@@ -217,7 +310,6 @@ def main():
 
         logger.info("Pipeline started")
 
-        # EXTRACT
         products = fetch_products()
 
         # RAW
@@ -226,6 +318,9 @@ def main():
         # STG
         stg_df = transform_stg(products)
         load_stg(stg_df)
+
+        # QUALITY
+        run_quality()
 
         # MART
         mart_df = transform_mart(stg_df)
@@ -244,7 +339,6 @@ def main():
     except Exception as e:
 
         logger.error(f"Unexpected error: {e}")
-
 
 # ==================================================
 # ENTRYPOINT

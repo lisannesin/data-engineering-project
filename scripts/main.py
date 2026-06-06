@@ -169,9 +169,9 @@ def transform_stg(products):
 
             "stock_quantity": product.get("stock_quantity"),
 
-             "product_status": product.get("status"),
+            "product_status": product.get("status"),
 
-             "stock_status": product.get("stock_status")
+            "stock_status": product.get("stock_status")
 
         })
 

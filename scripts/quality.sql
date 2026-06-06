@@ -1,7 +1,6 @@
 CREATE SCHEMA IF NOT EXISTS quality;
 
 DROP TABLE IF EXISTS quality.product_rule_results;
-DROP TABLE IF EXISTS quality.product_issue_summary;
 
 CREATE TABLE quality.product_rule_results AS
 

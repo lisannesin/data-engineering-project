@@ -1,26 +1,26 @@
-# [GRUPI NIMI] — [PROJEKTI PEALKIRI]
-
-> **Juhend:** Asenda kõik nurksulgudes vormid oma sisuga enne esitamist. Kustuta see juhendrida.
+# WooCommerce — WooCommerce Product Status Pipeline
 
 ## Äriküsimus
 
-[Kirjelda ühe-kahe lausega, millise andmetega seotud probleemi te lahendate ja kes sellest kasu saab.]
+Projekt aitab vastata küsimusele, millised e-poe tooted on müügiks valmis ning milline on nende laoseisu ja avaldamise staatus. Lahendus annab mikroettevõttele ühtse ülevaate toodete seisust ning aitab paremini jälgida, millised tooted vajavad tähelepanu enne müüki või nähtavaks tegemist.
+
 
 **Mõõdikud:**
 
-1. [Esimene KPI või mõõdik — näiteks: päevane müük poe kohta]
-2. [Teine KPI või mõõdik]
-3. [Kolmas KPI või mõõdik — vabatahtlik]
+1. Toodete arv staatuse järgi: avalik, mustand, ootel või privaatne
+2. Toodete laoseis SKU ja toote järgi
+3. Toodete arv laoseisu staatuse järgi: laos, laost otsas või järeltellimisel
 
 ## Arhitektuur
 
 ```mermaid
 flowchart LR
-    source[Andmeallikas] --> ingest[Sissevõtt]
-    ingest --> staging[(staging)]
-    staging --> transform[Transformatsioon]
-    transform --> mart[(mart)]
-    mart --> dashboard[Näidikulaud]
+    source[WooCommerce REST API] --> ingest[Python sissevõtt]
+    ingest --> raw[(RAW: raw.products_raw)]
+    raw --> stg[(STG: stg.products)]
+    stg --> quality[Andmekvaliteedi testid]
+    stg --> mart[(MART: mart.product_dashboard)]
+    mart --> dashboard[Power BI näidikulaud]
 ```
 
 Täpsem kirjeldus: [`docs/arhitektuur.md`](docs/arhitektuur.md)
@@ -28,19 +28,19 @@ Täpsem kirjeldus: [`docs/arhitektuur.md`](docs/arhitektuur.md)
 ## Andmestik
 
 | Allikas | Tüüp | Ajas muutuv? | Roll |
-|---------|------|--------------|------|
-| [Andmeallika nimi] | [API / fail / andmebaas] | Jah, [iga tund / päevas / muu] | Põhiandmevoog |
-| [Teise allika nimi] | [seed / dim-tabel] | Ei, staatiline | Kõrvaltabel |
+|----------|------|--------------|------|
+| WooCommerce REST API | API | Jah | Toodete staatus, SKU-d ja laoseis |
 
 ## Stack
 
 | Komponent | Tööriist |
-|-----------|---------|
-| Sissevõtt | [Python / Airflow / muu] |
-| Transformatsioon | [SQL / dbt / muu] |
+|------------|----------|
+| Sissevõtt | Python |
+| Transformatsioon | Python, Pandas, SQL |
 | Andmehoidla | PostgreSQL |
-| Näidikulaud | [Superset / Streamlit / muu] |
-| Orkestreerimine | [Airflow / cron / muu] |
+| Andmekvaliteet | SQL |
+| Näidikulaud | Streamlit |
+| Käivitamine | Docker Compose |
 
 ## Käivitamine
 
@@ -69,60 +69,85 @@ Kõik saladused (paroolid, API võtmed, andmebaasi URL-id) on `.env` failis. Rep
 
 Vajalikud muutujad:
 
-| Muutuja | Tähendus | Näide |
-|---------|----------|-------|
-| `DB_PASSWORD` | PostgreSQL parool | (saladus) |
-| `[teised]` | ... | ... |
+| Muutuja | Tähendus |
+|----------|----------|
+| POSTGRES_USER | PostgreSQL kasutajanimi |
+| POSTGRES_PASSWORD | PostgreSQL parool |
+| POSTGRES_DB | PostgreSQL andmebaasi nimi |
+| DB_HOST | PostgreSQL host |
+| DB_PORT | PostgreSQL port |
+| WC_API_URL | WooCommerce API URL |
+| WC_CONSUMER_KEY | WooCommerce API võti |
+| WC_CONSUMER_SECRET | WooCommerce API saladus |
+
 
 ## Andmevoog lühidalt
 
-1. **Sissevõtt** — [Kirjelda, kuidas andmed allikast kätte saadakse]
-2. **Laadimine** — Andmed laaditakse `staging` kihti
-3. **Transformatsioon** — [Kirjelda peamised arvutused ja mudelid]
-4. **Testimine** — [Mitu] andmekvaliteedi testi kontrollivad korrektsust
-5. **Näidikulaud** — [Kirjelda lühidalt, mida näidikulaud näitab]
+1. **Sissevõtt** — Python rakendus pärib toodete andmed WooCommerce REST API-st ning salvestab need RAW kihti JSONB kujul.
+2. **Laadimine** — Andmed teisendatakse struktureeritud tabelkujule ja laaditakse `stg.products` tabelisse.
+3. **Transformatsioon** — Luuakse analüüsiks vajalikud tunnused, näiteks `in_stock` ja `inventory_status`, ning andmed salvestatakse MART kihti.
+4. **Testimine** — 5 andmekvaliteedi testi kontrollivad puuduvaid ID-sid, negatiivseid laoseise, vigaseid staatuseid ja duplikaate.
+5. **Näidikulaud** — Power BI kuvab toodete staatuseid, laoseisu infot ja ülevaadet müügiks valmis toodetest.
 
 ## Andmekvaliteedi testid
 
 Projekt kontrollib järgmist:
 
-1. [Test 1 - nt: kasutajate ID on unikaalne]
-2. [Test 2 - nt: tellimuse summa pole null]
-3. [Test 3 - nt: kuupäev jääb vahemikku 2020-2026]
-[Lisa rohkem, kui sul on]
+1. `product_id` ei tohi olla tühi (NULL)
+2. `stock_quantity` ei tohi olla negatiivne
+3. `product_status` peab olema üks lubatud väärtustest (`publish`, `draft`, `pending`, `private`)
+4. `stock_status` peab olema üks lubatud väärtustest (`instock`, `outofstock`, `onbackorder`)
+5. `product_id` peab olema unikaalne ning ei tohi esineda duplikaatidena
 
-Testide tulemused: [kuhu salvestatakse / kuidas vaadata]
+Testide tulemused: `quality.product_rule_results`
 
 ## Projekti struktuur
 
-```
+```text
 .
+├── init/
+│   └── 001_create_schemas.sql      # Loob PostgreSQL skeemid ja RAW tabeli
+├── scripts/
+│   ├── main.py                     # ETL pipeline: RAW → STG → QUALITY → MART
+│   └── quality.sql                 # Andmekvaliteedi kontrollid
+├── dashboard/
+│   └── app.py                      # Streamlit näidikulaud
 ├── README.md
 ├── compose.yml
 ├── .env.example
-├── .gitignore
-├── docs/
-│   ├── arhitektuur.md      ← nädal 1 väljund
-│   └── progress.md         ← nädal 2 väljund
-└── ...                     ← ülejäänud projektifailid
+└── .gitignore
 ```
 
 ## Kokkuvõte, puudused ja võimalikud edasiarendused
 
-**Kokkuvõte:**
-- [Loetle, mis on lõpule viidud, mis töötab hästi]
+### Kokkuvõte
 
-**Puudused:**
-- [Loetle ausalt, mis jäi tegemata - see ei mõjuta hinnet negatiivselt, vaid aitab hinnata]
+- Loodud on WooCommerce API põhine ETL pipeline.
+- Rakendatud on medaljoni arhitektuur (RAW → STG → MART).
+- Lisatud on SQL-põhised andmekvaliteedi kontrollid.
+- Loodud on Streamlit näidikulaud toodete ja laoseisu jälgimiseks.
 
-**Mis edasi:**
-- [Mida tahaksid edasi teha, kui aega oleks rohkem]
+
+### Puudused
+
+- Praegu kasutatakse ainult WooCommerce API andmeid.
+- STG ja MART tabelid kirjutatakse igal käivitamisel üle.
+- Ajaloolisi snapshotte ei säilitata.
+- Airflow põhine orkestreerimine puudub.
+
+### Edasiarendused
+
+- Lisada Airflow ajastamine.
+- Lisada ajalooliste andmete säilitamine.
+- Lisada täiendavad kvaliteedikontrollid.
+- Luua eraldi dimensiooni- ja faktitabelid.
+- Lisada täiendavad ärilised andmeallikad.
 
 ## Meeskond
 
 | Nimi | Roll |
-|------|------|
-| [Nimi 1] | [Roll] |
-| [Nimi 2] | [Roll] |
-| [Nimi 3] | [Roll] |
-| [Nimi 4] | [Roll — vabatahtlik] |
+|--------|--------|
+| Merri Elizabeth Laidma | Andmeallika ja sissevõtu omanik |
+| Lisanne Siniväli | Transformatsioonide ja MART kihi omanik |
+| Eva Radhaa | Andmekvaliteedi kontrollide omanik |
+| Katrin Saareli | Näidikulaua omanik |

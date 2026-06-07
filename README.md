@@ -56,7 +56,12 @@ cp .env.example .env
 # 3. Käivita teenused
 docker compose up -d --build
 
-Näidikulaud: http://localhost:8501
+# 4. [Vabatahtlik: käivita sissevõtt käsitsi esimesel korral]
+# docker compose exec pipeline python scripts/run_pipeline.py run-all
+```
+
+Airflow (kui kasutatakse): http://localhost:8080 (kasutaja: airflow / parool: airflow)
+Näidikulaud: http://localhost:[PORT]
 
 ## Saladused ja konfiguratsioon
 
